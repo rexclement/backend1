@@ -1,6 +1,6 @@
-const { v2: cloudinary } = require("cloudinary");
-// require("dotenv").config({ path: "../config.env" });
-require('dotenv').config();
+import { v2 as cloudinary } from "cloudinary";
+import dotenv from "dotenv";
+dotenv.config();
 
 function configureCloudinary() {
   cloudinary.config({
@@ -14,5 +14,5 @@ function configureCloudinary() {
 
 configureCloudinary();
 
-module.exports = { cloudinary, configureCloudinary };
+export{ cloudinary, configureCloudinary };
 

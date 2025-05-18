@@ -1,12 +1,14 @@
-const express = require("express");
+import express from "express";
+import {Documentdb} from "../index.js";
+import { documentUpload } from"../middlewares/upload.js"; // use the correct path
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from 'url';
 const router = express.Router();
-const Documentdb = require("../models/documents");
-const { documentUpload } = require("../middlewares/upload"); // use the correct path
-const path = require("path");
-const fs = require("fs");
-const {cloudinary} = require("../middlewares/cloudinary");
 
-
+// Emulate __filename and __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // old document
 router.get("/", async (req, res) => {
     try {
@@ -51,24 +53,12 @@ router.post("/add", documentUpload.single("file"), async (req, res) => {
     const file = req.file;
 
     if (!file) return res.status(400).json({ error: "No file uploaded" });
-
-    const result = await cloudinary.uploader.upload_stream(
-      {
-        folder: "Home/uploads/documents",
-        resource_type: "auto",
-      },
-      async (error, result) => {
-        if (error) {
-          console.error("Cloudinary upload error:", error);
-          return res.status(500).json({ error: "Upload to Cloudinary failed" });
-        }
-        console.log(result);
+    const fileUrl = `/uploads/documents/${file.filename}`;
+    
         const newDoc = new Documentdb({
           name: file.originalname,
           category,
-          fileUrl: result.secure_url,
-          public_key: result.public_id,
-          resource_type: result.resource_type
+          fileUrl,
         });
 
         await newDoc.save();
@@ -76,15 +66,8 @@ router.post("/add", documentUpload.single("file"), async (req, res) => {
         return res.status(201).json({
           category,
           name: file.originalname,
-          fileUrl: result.secure_url,
-          
+          fileUrl,
         });
-      }
-    );
-
-    // Pipe buffer to Cloudinary upload_stream
-    require("streamifier").createReadStream(file.buffer).pipe(result);
-
   } catch (err) {
     console.error("Document upload error:", err);
     res.status(500).json({ error: "Upload failed" });
@@ -100,30 +83,20 @@ router.delete("/delete", async (req, res) => {
    
     const { fileUrl } = req.body;
 
-    // Step 1: Find the document by fileUrl
-    const doc = await Documentdb.findOne({ fileUrl });
+   // Delete from database
+   const doc = await Documentdb.findOneAndDelete({ fileUrl });
 
     if (!doc) return res.status(404).json({ message: "Document not found" });
     
-    // Step 2: Delete from Cloudinary using public_key
-    if (doc.public_key) {
-      try {
-        await cloudinary.uploader.destroy(doc.public_key, {
-          resource_type: doc.resource_type, // change if needed: "image", "video", etc.
-        });
-        console.log('✅ Deleted from Cloudinary:');
-      } catch (cloudErr) {
-        console.error('❌ Cloudinary deletion failed for:', cloudErr);
-      }
-    }
+  
+      const uploadsDir = path.join(__dirname, "..", "uploads", "documents");
+      const fileName = path.basename(fileUrl);
+      const filePath = path.join(uploadsDir, fileName);
 
-    // Step 3: Delete from MongoDB
-    try {
-      await Documentdb.findByIdAndDelete(doc._id);
-      console.log('✅ Deleted from MongoDB: ');
-    } catch (dbErr) {
-      console.error('❌ MongoDB deletion failed for ID:', dbErr);
-    }
+       if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+      }
+  
 
     // Step 4: Get and group remaining documents
     const allDocs = await Documentdb.find();
@@ -159,4 +132,4 @@ router.delete("/delete", async (req, res) => {
 
 
 
-module.exports = router;
+ export default router;

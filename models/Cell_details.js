@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const CollegeCellSchema = new mongoose.Schema({
     institution: { type: String, required: true },
@@ -13,7 +13,7 @@ const CollegeCellSchema = new mongoose.Schema({
     order: Number,
 });
 
-const collegedb = mongoose.model("College_Cell_details", CollegeCellSchema );
+
 
 const SchoolCellSchema = new mongoose.Schema({
     institution: { type: String, required: true },
@@ -28,9 +28,9 @@ const SchoolCellSchema = new mongoose.Schema({
     order: Number,
 });
 
-const schooldb = mongoose.model("School_Cell_details", SchoolCellSchema);
 
-module.exports = {
-    collegedb,
-    schooldb
+
+export {
+    CollegeCellSchema,
+    SchoolCellSchema
 };

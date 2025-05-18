@@ -1,4 +1,5 @@
-const mongoose = require("mongoose");
+
+import mongoose from "mongoose";
 
 const documentSchema = new mongoose.Schema({
     name: String,
@@ -7,8 +8,6 @@ const documentSchema = new mongoose.Schema({
         enum: ["minutes", "reports", "schedule", "songSheets", "others"]
     },
     fileUrl: String,
-    public_key: String,
-    resource_type: String
 });
 
-module.exports = mongoose.model("documentmodel", documentSchema);
+export default documentSchema;

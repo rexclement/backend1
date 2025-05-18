@@ -1,33 +1,57 @@
-const bcrypt = require('bcryptjs');
-const express = require("express");
-const session = require('express-session');
-const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
-const {configureCloudinary} = require ("./middlewares/cloudinary");
+import express from "express";
+import bcrypt from "bcryptjs";
+import session from "express-session";
+import passport from "passport";
+import pkg from 'passport-local';
+const { Strategy: LocalStrategy } = pkg;
+
+import dotenv from "dotenv";
+import cors from "cors";
+
+import  connectToDatabases  from "./connect.js";
+import { configureCloudinary } from "./middlewares/cloudinary.js";
+
+import event_router from "./routers/Events.js";
+import document_router from "./routers/Document.js";
+import members_router from "./routers/Member.js";
+import cell_router from "./routers/Prayer_cells.js";
 
 
-const bodyParser = require("body-parser");
 
+import documentSchema from "./models/documents.js";
+import {CollegeCellSchema} from "./models/Cell_details.js";
+import { SchoolCellSchema } from "./models/Cell_details.js";
+import {EventSchema, Fellowship, Mission} from './models/event_details.js';
+import memberSchema from "./models/Members_details.js";
+import userSchema from "./models/store.js";
+import bodyParser from 'body-parser';
 
-const cors = require("cors");
-const path = require("path");
-const fs = require("fs-extra");
-const connectTOMongo=require("./connect");
-const upload = require("./middlewares/upload"); // Import multer middleware
-const event_router = require("./routers/Events");
-const document_router = require("./routers/Document");
-const members_router = require("./routers/Member");
-const cell_router = require("./routers/Prayer_cells");
-const Storesdb = require("./models/store");
-const { redirect } = require('react-router-dom');
-const serverless = require('serverless-http');
+let membersdb;
+let collegedb;
+let schooldb;
+let eventdb;
+let Documentdb;
+let Storesdb;
+let fellowshipdb;
+let missiondb;
 
-// require("dotenv").config({path: "./config.env"})
-require('dotenv').config();
-
-
-connectTOMongo();
+dotenv.config();
 configureCloudinary();
+async function init() {
+  const { db1,db2 } = await connectToDatabases();
+
+  membersdb = db2.model('members', memberSchema);
+  eventdb = db2.model('Events', EventSchema);
+  fellowshipdb = db2.model('Fellowship', Fellowship);
+  missiondb = db2.model('Misiion', Mission);
+  collegedb = db1.model('college_cell_details', CollegeCellSchema);
+  schooldb = db1.model('school_cell_details', SchoolCellSchema);
+  Documentdb = db1.model('documentmodels', documentSchema);
+  Storesdb = db1.model('stores', userSchema);
+
+}
+
+init();
 
 
 const saltRounds = 10;
@@ -36,7 +60,7 @@ const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors({
-  origin: "https://rexclement.github.io/ABC", // React frontend
+  origin: "http://localhost:3000", // React frontend
   credentials: true // Allow sending cookies
 }));
 app.use(express.json()); // Enables JSON body parsing
@@ -200,9 +224,10 @@ app.post('/changeme', async (req, res) => {
   });
   
   // Export the app as a serverless function
- 
-  module.exports = serverless(app);
+ export { membersdb, collegedb, schooldb, eventdb, Documentdb, fellowshipdb, missiondb}
+
 
 app.listen(port, () => console.log("Server running on port 5000"));
 
 
+ 

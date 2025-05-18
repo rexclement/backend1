@@ -1,11 +1,10 @@
-const membersdb = require( "../models/Members_details" );
-const express = require('express');
+import {membersdb} from "../index.js" ;
+import express from 'express';
+import { teamMemberUpload } from '../middlewares/upload.js';
 const router = express.Router();
-const { teamMemberUpload } = require('../middlewares/upload');
-const streamifier = require("streamifier");
-const {cloudinary} = require("../middlewares/cloudinary");
-const fs = require('fs');
-const path = require('path');
+import path from "path";
+import fs from "fs-extra";
+
 
 // Predefined roles (match naming of default images)
 const predefinedRoles = [
@@ -23,42 +22,6 @@ const predefinedRoles = [
   "Students ministry Secretary",
   "Staff worker"
 ];
-
-
-async function deleteFromCloudinary(publicId, resourceType = "image") {
-  if (!publicId) {
-    console.warn("⚠️ No public ID provided for Cloudinary deletion.");
-    return;
-  }
-
-  try {
-    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
-    console.log(`✅ Successfully deleted from Cloudinary: ${publicId}`);
-  } catch (error) {
-    console.error(`❌ Cloudinary deletion failed for ${publicId}:`, error);
-  }
-}
-
-
-// 🔼 Upload buffer to Cloudinary
-async function uploadToCloudinary(buffer, folder = "Home/uploads/team_members", resourceType = "image") {
-  return new Promise((resolve, reject) => {
-    
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: resourceType,
-      },
-      (error, result) => {
-        if (result) resolve(result);
-        else reject(error);
-      }
-    );
-
-    streamifier.createReadStream(buffer).pipe(stream);
-  });
-}
-
 
 
 router.get('/', async (req, res) => {
@@ -79,28 +42,13 @@ router.post("/add", teamMemberUpload.single("photo"), async (req, res) => {
     
     const { name, role, priority, description } = req.body;
     let photoUrl = "";
-    let public_key = "";
+ 
 
     if (req.file) {
-      // 📷 Upload buffer to Cloudinary
-      const result = await uploadToCloudinary(
-        req.file.buffer
-      );
-      photoUrl = result.secure_url;
-      public_key = result.public_id;
+      // Case 1: User uploaded a photo
+      photoUrl = `/uploads/team_members/${req.file.filename}`;
     } else {
-      // 🔄 Role-based default fallback
-      const normalizedRole = role.toLowerCase().replace(/\s+/g, "-");
-      
-      const isPredefined = predefinedRoles.some(
-        r => r.toLowerCase() === role.toLowerCase()
-      );
-      
-      if (isPredefined) {
-        photoUrl = `uploads/team_members/defaults/${normalizedRole}.png`;
-      } else {
-        photoUrl = "uploads/team_members/defaults/default.png";
-      }
+        photoUrl = "/uploads/team_members/defaults/default.png";
     }
 
     const newMember = new membersdb({
@@ -109,7 +57,6 @@ router.post("/add", teamMemberUpload.single("photo"), async (req, res) => {
       priority: Number(priority),
       description,
       photo: photoUrl,
-      public_id: public_key || null, // Optional: store public_id for future deletion
     });
 
     const savedMember = await newMember.save();
@@ -130,27 +77,30 @@ router.put('/:id', teamMemberUpload.single('photo'), async (req, res) => {
       return res.status(404).json({ message: 'Member not found' });
     }
 
-    let newPhotoUrl = member.photo;
-    let newPublicId = member.public_id;
 
-    if (req.file && req.file.buffer) {
+    if (req.file && req.file.filename) {
       // Delete old Cloudinary image if not a default
       const isDefault = member.photo.includes('team_members/defaults');
 
-      if (!isDefault && member.public_id) {
-        await deleteFromCloudinary(member.public_id);
+      if (!isDefault) {
+         const fileName = path.basename(oldPhotoPath); // safely get filename
+        const filePath = path.join(__dirname, '../uploads/team_members', fileName);
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log('Old photo deleted:', filePath);
+        }
       }
-
-      // Upload new image to Cloudinary
-      const uploadResult = await uploadToCloudinary(
-        req.file.buffer,
-        'Home/uploads/team_members'
-      );
-
-      newPhotoUrl = uploadResult.secure_url;
-      newPublicId = uploadResult.public_id;
     }
-
+   
+    let photoUrl;
+    if (req.file) {
+        photoUrl = `/uploads/team_members/${req.file.filename}`;
+      }else if(req.body.profileOption === "same"){
+        photoUrl=member.photo;
+      }else{
+        photoUrl="/uploads/team_members/defaults/default.png"
+      }
     const updatedMember = await membersdb.findByIdAndUpdate(
       req.params.id,
       {
@@ -158,8 +108,7 @@ router.put('/:id', teamMemberUpload.single('photo'), async (req, res) => {
         description,
         role,
         priority: parseInt(priority),
-        photo: newPhotoUrl,
-        public_id: newPublicId,
+        photo: photoUrl,
       },
       { new: true }
     );
@@ -186,14 +135,20 @@ router.delete('/delete/:id', async (req, res) => {
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
     }
-
-    // Delete from Cloudinary if it's not a default image
-    const isDefault = member.photo.includes('team_members/defaults');
-
-    if (!isDefault && member.public_id) {
-      await deleteFromCloudinary(member.public_id);
-      console.log('✅ Member photo deleted from Cloudinary');
-    }
+    
+   if (member.photo && !member.photo.includes('defaults')) {
+        // Only delete the file if it's not a default image
+        const fileName = path.basename(member.photo); // safely extract filename
+        const filePath = path.join(__dirname, '../uploads/team_members/', fileName);
+  
+        fs.unlink(filePath, (err) => {
+          if (err) {
+            console.error('File delete failed:', err);
+          } else {
+            console.log('Member photo deleted');
+          }
+        });
+      }
 
     // Delete the member from the database
     await membersdb.findByIdAndDelete(req.params.id);
@@ -208,5 +163,5 @@ router.delete('/delete/:id', async (req, res) => {
 
   
 
-module.exports = router;
+ export default router;
 

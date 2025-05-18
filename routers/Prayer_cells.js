@@ -1,7 +1,8 @@
-const express = require('express');
+import express from "express";
+import { collegedb } from "../index.js";
+import { schooldb } from "../index.js" // Adjust according to your export paths
+import mongoose from "mongoose";
 const router = express.Router();
-const { collegedb, schooldb } = require("../models/Cell_details"); // Adjust according to your export paths
-const mongoose = require("mongoose");
 
 router.get("/all", async (req, res) => {
     try {
@@ -199,5 +200,5 @@ router.put("/update/", async (req, res) => {
   
 
 
-  module.exports = router;
+  export default router;
   
