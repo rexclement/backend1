@@ -88,7 +88,7 @@ router.put('/:id', teamMemberUpload.single('photo'), async (req, res) => {
 
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
-          console.log('Old photo deleted:', filePath);
+          
         }
       }
     }
@@ -152,7 +152,7 @@ router.delete('/delete/:id', async (req, res) => {
 
     // Delete the member from the database
     await membersdb.findByIdAndDelete(req.params.id);
-    console.log('✅ Member deleted from DB');
+    console.log(' Member deleted from DB');
 
     res.json({ message: 'Member deleted successfully' });
   } catch (err) {

@@ -25,6 +25,7 @@ import {EventSchema, Fellowship, Mission} from './models/event_details.js';
 import memberSchema from "./models/Members_details.js";
 import userSchema from "./models/store.js";
 import bodyParser from 'body-parser';
+import MongoStore from "connect-mongo";
 
 let membersdb;
 let collegedb;
@@ -36,7 +37,7 @@ let fellowshipdb;
 let missiondb;
 
 dotenv.config();
-configureCloudinary();
+
 async function init() {
   const { db1,db2 } = await connectToDatabases();
 
@@ -59,9 +60,21 @@ const port = 5000;
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
+app.set('trust proxy', 1);
+const allowedOrigins = [
+  "http://34.83.205.86:3000",
+  "https://rexclement.github.io"
+];
+
 app.use(cors({
-  origin: "http://localhost:3000", // React frontend
-  credentials: true // Allow sending cookies
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
 }));
 app.use(express.json()); // Enables JSON body parsing
 
@@ -74,12 +87,16 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.ATLAS_URI_DB2,
+    ttl: 60 * 60, // 1 hour in seconds
+  }),
   cookie: {
-    maxAge: 60 * 60 * 1000,
-    secure: false, // important for localhost
-    httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      httpOnly: true,
+      maxAge: 60 * 60 * 1000, // 1 hour
   }
-
 }));
 
 app.use(passport.initialize());
@@ -220,7 +237,7 @@ app.post('/changeme', async (req, res) => {
   });
 
   app.get('/', (req, res) => {
-    res.send('Hello from Express on Vercel!');
+    res.send('Hello from Express on cloud!');
   });
   
   // Export the app as a serverless function

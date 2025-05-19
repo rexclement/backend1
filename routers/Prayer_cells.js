@@ -131,7 +131,7 @@ router.delete("/delete/:id", async (req, res) => {
 
 
   router.put('/reorder', async (req, res) => {
-    console.log('Received reorder data:', req.body);
+   
     const { reorderedIds, type } = req.body; // type = "college" or "school"
   
     try {
@@ -190,7 +190,7 @@ router.put("/update/", async (req, res) => {
       if (!updatedCell) {
         return res.status(404).json({ error: "Cell not found" });
       }
-      console.log('updatedCell',updatedCell);
+     
       res.json(updatedCell);
     } catch (error) {
       console.error(error);
